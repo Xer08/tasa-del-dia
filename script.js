@@ -70,6 +70,23 @@ async function fetchRates() {
     }
 }
 
+// Función para intercambiar divisas
+function swapCurrencies() {
+    const fromCurrency = document.getElementById('fromCurrency');
+    const toCurrency = document.getElementById('toCurrency');
+    
+    // Intercambiar valores
+    const temp = fromCurrency.value;
+    fromCurrency.value = toCurrency.value;
+    toCurrency.value = temp;
+    
+    // Si hay un monto ingresado, convertir automáticamente
+    const amount = parseFloat(document.getElementById('amount').value);
+    if (!isNaN(amount) && amount > 0) {
+        convertCurrency();
+    }
+}
+
 // Función para convertir monedas
 function convertCurrency() {
     const fromCurrency = document.getElementById('fromCurrency').value;
@@ -77,7 +94,6 @@ function convertCurrency() {
     const amount = parseFloat(document.getElementById('amount').value);
 
     if (isNaN(amount) || amount <= 0) {
-        alert('Por favor, ingrese un monto válido');
         return;
     }
 
@@ -121,10 +137,26 @@ function convertCurrency() {
 
 // Event listeners
 document.getElementById('convertBtn').addEventListener('click', convertCurrency);
+document.getElementById('swapBtn').addEventListener('click', swapCurrencies);
 
 // También permitir conversión al presionar Enter
 document.getElementById('amount').addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
+        convertCurrency();
+    }
+});
+
+// Conversión automática al cambiar las divisas si hay monto
+document.getElementById('fromCurrency').addEventListener('change', function() {
+    const amount = parseFloat(document.getElementById('amount').value);
+    if (!isNaN(amount) && amount > 0) {
+        convertCurrency();
+    }
+});
+
+document.getElementById('toCurrency').addEventListener('change', function() {
+    const amount = parseFloat(document.getElementById('amount').value);
+    if (!isNaN(amount) && amount > 0) {
         convertCurrency();
     }
 });
