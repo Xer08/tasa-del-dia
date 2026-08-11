@@ -314,9 +314,39 @@ function convertCurrency() {
     resultContainer.classList.remove('hidden');
 }
 
+// Función para copiar el resultado al portapapeles
+function copyResult() {
+    const resultElement = document.getElementById('result');
+    const conversionRateElement = document.getElementById('conversionRate');
+    
+    const resultText = resultElement.textContent;
+    const rateText = conversionRateElement.textContent;
+    
+    const textToCopy = `${resultText}\n${rateText}`;
+    
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        // Cambiar el icono del botón temporalmente para indicar que se copió
+        const copyBtn = document.getElementById('copyBtn');
+        const originalHTML = copyBtn.innerHTML;
+        
+        copyBtn.innerHTML = `
+            <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+        `;
+        
+        setTimeout(() => {
+            copyBtn.innerHTML = originalHTML;
+        }, 2000);
+    }).catch(err => {
+        console.error('Error al copiar al portapapeles:', err);
+    });
+}
+
 // Event listeners
 document.getElementById('convertBtn').addEventListener('click', convertCurrency);
 document.getElementById('swapBtn').addEventListener('click', swapCurrencies);
+document.getElementById('copyBtn').addEventListener('click', copyResult);
 
 // También permitir conversión al presionar Enter
 document.getElementById('amount').addEventListener('keypress', function(e) {
