@@ -317,14 +317,13 @@ function convertCurrency() {
 // Función para copiar el resultado al portapapeles
 function copyResult() {
     const resultElement = document.getElementById('result');
-    const conversionRateElement = document.getElementById('conversionRate');
     
     const resultText = resultElement.textContent;
-    const rateText = conversionRateElement.textContent;
     
-    const textToCopy = `${resultText}\n${rateText}`;
+    // Extraer solo el número (antes del espacio y la moneda)
+    const numberOnly = resultText.split(' ')[0];
     
-    navigator.clipboard.writeText(textToCopy).then(() => {
+    navigator.clipboard.writeText(numberOnly).then(() => {
         // Cambiar el icono del botón temporalmente para indicar que se copió
         const copyBtn = document.getElementById('copyBtn');
         const originalHTML = copyBtn.innerHTML;
