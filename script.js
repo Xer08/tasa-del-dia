@@ -1,6 +1,41 @@
 // Variables globales para las tasas
 let usdRate = 0;
 let eurRate = 0;
+let previousUsdRate = 0;
+let previousEurRate = 0;
+
+// Función para alternar modo oscuro
+function toggleDarkMode() {
+    const html = document.documentElement;
+    const isDark = html.classList.toggle('dark');
+    
+    // Actualizar iconos
+    const sunIcon = document.getElementById('sunIcon');
+    const moonIcon = document.getElementById('moonIcon');
+    
+    if (isDark) {
+        sunIcon.classList.remove('hidden');
+        moonIcon.classList.add('hidden');
+    } else {
+        sunIcon.classList.add('hidden');
+        moonIcon.classList.remove('hidden');
+    }
+    
+    // Guardar preferencia
+    localStorage.setItem('darkMode', isDark);
+}
+
+// Función para cargar preferencia de modo oscuro
+function loadDarkModePreference() {
+    const savedMode = localStorage.getItem('darkMode');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    if (savedMode === 'true' || (savedMode === null && prefersDark)) {
+        document.documentElement.classList.add('dark');
+        document.getElementById('sunIcon').classList.remove('hidden');
+        document.getElementById('moonIcon').classList.add('hidden');
+    }
+}
 
 // Función para formatear números
 function formatNumber(num) {
@@ -20,6 +55,122 @@ function formatDate(dateString) {
     });
 }
 
+// Función para solicitar permiso de notificaciones
+async function requestNotificationPermission() {
+    if ('Notification' in window) {
+        const permission = await Notification.requestPermission();
+        return permission === 'granted';
+    }
+    return false;
+}
+
+// Función para enviar notificación
+function sendNotification(title, body) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, {
+            body: body,
+            icon: 'android-chrome-192x192.png'
+        });
+    }
+}
+
+// Función para actualizar el cambio de precio en la UI
+function updatePriceChange(currency, newRate, oldRate) {
+    if (oldRate === 0 || newRate === oldRate) {
+        return;
+    }
+
+    const change = ((newRate - oldRate) / oldRate * 100).toFixed(2);
+    const isIncrease = newRate > oldRate;
+    
+    const changeElement = document.getElementById(`${currency.toLowerCase()}Change`);
+    const changeIcon = document.getElementById(`${currency.toLowerCase()}ChangeIcon`);
+    const changeText = document.getElementById(`${currency.toLowerCase()}ChangeText`);
+    
+    if (isIncrease) {
+        changeIcon.innerHTML = '📈';
+        changeText.textContent = `+${change}%`;
+        changeText.className = 'text-green-600';
+    } else {
+        changeIcon.innerHTML = '📉';
+        changeText.textContent = `${change}%`;
+        changeText.className = 'text-red-600';
+    }
+    
+    changeElement.classList.remove('hidden');
+}
+
+// Función para obtener historial de precios de los últimos 7 días
+async function fetchHistory() {
+    try {
+        // Generar fechas de los 7 días anteriores (sin incluir hoy)
+        const dates = [];
+        const today = new Date();
+        
+        for (let i = 7; i >= 1; i--) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            dates.push(date.toISOString().split('T')[0]);
+        }
+        
+        // Obtener datos para cada fecha usando BCV Today
+        const tableBody = document.getElementById('historyTableBody');
+        tableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500 dark:text-gray-400">Cargando historial...</td></tr>';
+        
+        const historyData = [];
+        
+        for (const dateStr of dates) {
+            try {
+                const response = await fetch(`https://bcv.today/api/v1/history/${dateStr}.json`);
+                const data = await response.json();
+                historyData.push({
+                    date: dateStr,
+                    USD: data.USD || null,
+                    EUR: data.EUR || null
+                });
+            } catch (error) {
+                console.error(`Error al obtener datos para ${dateStr}:`, error);
+                historyData.push({
+                    date: dateStr,
+                    USD: null,
+                    EUR: null
+                });
+            }
+        }
+        
+        // Actualizar la tabla
+        tableBody.innerHTML = '';
+        
+        historyData.forEach(entry => {
+            const row = document.createElement('tr');
+            row.className = 'border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50';
+            
+            const date = new Date(entry.date);
+            const formattedDate = date.toLocaleDateString('es-VE', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            });
+            
+            const usdRate = entry.USD ? formatNumber(entry.USD) : '--';
+            const eurRate = entry.EUR ? formatNumber(entry.EUR) : '--';
+            
+            row.innerHTML = `
+                <td class="py-3 text-sm text-gray-700 dark:text-gray-300">${formattedDate}</td>
+                <td class="py-3 text-sm font-medium text-gray-800 dark:text-white">${usdRate} VES</td>
+                <td class="py-3 text-sm font-medium text-gray-800 dark:text-white">${eurRate} VES</td>
+            `;
+            
+            tableBody.appendChild(row);
+        });
+        
+    } catch (error) {
+        console.error('Error al obtener el historial:', error);
+        const tableBody = document.getElementById('historyTableBody');
+        tableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-red-500 dark:text-red-400">Error al cargar el historial</td></tr>';
+    }
+}
+
 // Función para obtener tasas del BCV
 async function fetchRates() {
     try {
@@ -28,7 +179,21 @@ async function fetchRates() {
         const usdData = await usdResponse.json();
         
         if (usdData.exito) {
+            // Guardar tasa anterior y actualizar la nueva
+            previousUsdRate = usdRate;
             usdRate = usdData.precio;
+            
+            // Verificar si hubo cambio en la tasa del dólar
+            if (previousUsdRate !== 0 && usdRate !== previousUsdRate) {
+                const change = ((usdRate - previousUsdRate) / previousUsdRate * 100).toFixed(2);
+                const direction = usdRate > previousUsdRate ? 'subió' : 'bajó';
+                sendNotification(
+                    'Tasa del dólar actualizada',
+                    `El dólar ${direction} a ${formatNumber(usdRate)} VES (${change}%)`
+                );
+                // Actualizar UI con el cambio
+                updatePriceChange('USD', usdRate, previousUsdRate);
+            }
             
             // Actualizar UI del dólar
             document.getElementById('usdRate').textContent = formatNumber(usdRate);
@@ -46,7 +211,21 @@ async function fetchRates() {
         const eurData = await eurResponse.json();
         
         if (eurData.exito) {
+            // Guardar tasa anterior y actualizar la nueva
+            previousEurRate = eurRate;
             eurRate = eurData.precio;
+            
+            // Verificar si hubo cambio en la tasa del euro
+            if (previousEurRate !== 0 && eurRate !== previousEurRate) {
+                const change = ((eurRate - previousEurRate) / previousEurRate * 100).toFixed(2);
+                const direction = eurRate > previousEurRate ? 'subió' : 'bajó';
+                sendNotification(
+                    'Tasa del euro actualizada',
+                    `El euro ${direction} a ${formatNumber(eurRate)} VES (${change}%)`
+                );
+                // Actualizar UI con el cambio
+                updatePriceChange('EUR', eurRate, previousEurRate);
+            }
             
             // Actualizar UI del euro
             document.getElementById('eurRate').textContent = formatNumber(eurRate);
@@ -161,8 +340,23 @@ document.getElementById('toCurrency').addEventListener('change', function() {
     }
 });
 
+// Cargar preferencia de modo oscuro
+loadDarkModePreference();
+
+// Event listener para toggle de modo oscuro
+document.getElementById('darkModeToggle').addEventListener('click', toggleDarkMode);
+
 // Cargar tasas al iniciar la página
 fetchRates();
 
+// Solicitar permiso de notificaciones
+requestNotificationPermission();
+
+// Cargar historial de precios
+fetchHistory();
+
 // Actualizar tasas cada 5 minutos (300000 ms)
 setInterval(fetchRates, 300000);
+
+// Actualizar historial diariamente (86400000 ms = 24 horas)
+setInterval(fetchHistory, 86400000);

@@ -20,6 +20,11 @@
     <link rel="manifest" href="site.webmanifest">
     <link rel="icon" href="favicon.ico">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -44,7 +49,17 @@
     <div class="container mx-auto px-4 py-8">
         <!-- Header -->
         <header class="text-center mb-12">
-            <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">Tasa del Día BCV - Calculadora Okami ⛩️</h1>
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-4xl md:text-5xl font-bold text-white">Tasa del Día BCV - Calculadora Okami ⛩️</h1>
+                <button id="darkModeToggle" class="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
+                    <svg id="sunIcon" class="w-6 h-6 text-white hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                    </svg>
+                    <svg id="moonIcon" class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                    </svg>
+                </button>
+            </div>
             <p class="text-white/80 text-lg">Tasas oficiales del Banco Central de Venezuela, SIN ANUNCIOS 🤑</p>
             <p class="text-white/60 text-sm mt-2">Actualizado: <span id="lastUpdate">Cargando...</span></p>
         </header>
@@ -52,27 +67,31 @@
         <!-- Tasas Cards -->
         <div class="grid md:grid-cols-2 gap-6 mb-12">
             <!-- Dólar Card -->
-            <div class="bg-white rounded-2xl p-6 card-shadow">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 card-shadow">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center gap-3">
                         <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                             <span class="text-2xl">🇺🇸</span>
                         </div>
                         <div>
-                            <h2 class="text-xl font-bold text-gray-800">Dólar Americano 💵</h2>
-                            <p class="text-gray-500 text-sm">USD - BCV Oficial</p>
+                            <h2 class="text-xl font-bold text-gray-800 dark:text-white">Dólar Americano 💵</h2>
+                            <p class="text-gray-500 dark:text-gray-300 text-sm">USD - BCV Oficial</p>
                         </div>
                     </div>
-                    <div id="usdIndicator" class="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+                    <div id="usdIndicator" class="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-200">
                         --
                     </div>
                 </div>
                 <div class="mb-4">
-                    <p class="text-gray-500 text-sm mb-1">Tasa actual</p>
-                    <p id="usdRate" class="text-4xl font-bold text-gray-800">Cargando...</p>
-                    <p class="text-gray-500 text-sm">1 USD = <span id="usdRateText">--</span> VES</p>
+                    <p class="text-gray-500 dark:text-gray-300 text-sm mb-1">Tasa actual</p>
+                    <p id="usdRate" class="text-4xl font-bold text-gray-800 dark:text-white">Cargando...</p>
+                    <p class="text-gray-500 dark:text-gray-300 text-sm">1 USD = <span id="usdRateText">--</span> VES</p>
+                    <div id="usdChange" class="mt-2 text-sm font-medium hidden">
+                        <span id="usdChangeIcon"></span>
+                        <span id="usdChangeText"></span>
+                    </div>
                 </div>
-                <div class="flex items-center gap-2 text-sm text-gray-500">
+                <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
@@ -81,27 +100,31 @@
             </div>
 
             <!-- Euro Card -->
-            <div class="bg-white rounded-2xl p-6 card-shadow">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 card-shadow">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center gap-3">
                         <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                             <span class="text-2xl">🇪🇺</span>
                         </div>
                         <div>
-                            <h2 class="text-xl font-bold text-gray-800">Euro 💶</h2>
-                            <p class="text-gray-500 text-sm">EUR - BCV Oficial</p>
+                            <h2 class="text-xl font-bold text-gray-800 dark:text-white">Euro 💶</h2>
+                            <p class="text-gray-500 dark:text-gray-300 text-sm">EUR - BCV Oficial</p>
                         </div>
                     </div>
-                    <div id="eurIndicator" class="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+                    <div id="eurIndicator" class="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-200">
                         --
                     </div>
                 </div>
                 <div class="mb-4">
-                    <p class="text-gray-500 text-sm mb-1">Tasa actual</p>
-                    <p id="eurRate" class="text-4xl font-bold text-gray-800">Cargando...</p>
-                    <p class="text-gray-500 text-sm">1 EUR = <span id="eurRateText">--</span> VES</p>
+                    <p class="text-gray-500 dark:text-gray-300 text-sm mb-1">Tasa actual</p>
+                    <p id="eurRate" class="text-4xl font-bold text-gray-800 dark:text-white">Cargando...</p>
+                    <p class="text-gray-500 dark:text-gray-300 text-sm">1 EUR = <span id="eurRateText">--</span> VES</p>
+                    <div id="eurChange" class="mt-2 text-sm font-medium hidden">
+                        <span id="eurChangeIcon"></span>
+                        <span id="eurChangeText"></span>
+                    </div>
                 </div>
-                <div class="flex items-center gap-2 text-sm text-gray-500">
+                <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
@@ -111,9 +134,9 @@
         </div>
 
         <!-- Calculadora -->
-        <div class="bg-white rounded-2xl p-6 card-shadow mb-8">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 card-shadow mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
+                <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
                 </svg>
                 Calculadora de Conversión
@@ -122,8 +145,8 @@
             <div class="grid md:grid-cols-7 gap-4 items-end">
                 <!-- De -->
                 <div class="md:col-span-3">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">De</label>
-                    <select id="fromCurrency" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">De</label>
+                    <select id="fromCurrency" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:text-white dark:bg-gray-800">
                         <option value="USD">Dólar Americano (USD)</option>
                         <option value="EUR">Euro (EUR)</option>
                         <option value="VES">Bolívar (VES)</option>
@@ -141,8 +164,8 @@
 
                 <!-- A -->
                 <div class="md:col-span-3">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">A</label>
-                    <select id="toCurrency" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">A</label>
+                    <select id="toCurrency" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:text-white dark:bg-gray-800">
                         <option value="VES">Bolívar (VES)</option>
                         <option value="USD">Dólar Americano (USD)</option>
                         <option value="EUR">Euro (EUR)</option>
@@ -151,9 +174,9 @@
 
                 <!-- Monto -->
                 <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Monto</label>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Monto</label>
                     <input type="number" id="amount" placeholder="Ingrese el monto a convertir" 
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-lg">
+                           class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-lg dark:text-white dark:bg-gray-800 dark:placeholder-gray-400">
                 </div>
 
                 <!-- Convertir Button -->
@@ -165,19 +188,46 @@
 
                 <!-- Resultado -->
                 <div id="resultContainer" class="md:col-span-2 hidden">
-                    <div class="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-6 border border-purple-200">
-                        <p class="text-sm text-gray-600 mb-1">Resultado</p>
-                        <p id="result" class="text-3xl font-bold text-gray-800"></p>
-                        <p id="conversionRate" class="text-sm text-gray-500 mt-2"></p>
+                    <div class="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 rounded-lg p-6 border border-purple-200 dark:border-gray-600">
+                        <p class="text-sm text-gray-600 dark:text-gray-200 mb-1">Resultado</p>
+                        <p id="result" class="text-3xl font-bold text-gray-800 dark:text-white"></p>
+                        <p id="conversionRate" class="text-sm text-gray-500 dark:text-gray-200 mt-2"></p>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Historial de Precios (7 días anteriores) -->
+        <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 card-shadow mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
+                <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+                Historial de Precios (7 días anteriores)
+            </h2>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="border-b border-gray-200 dark:border-gray-700">
+                            <th class="pb-3 text-sm font-semibold text-gray-600 dark:text-gray-300">Fecha</th>
+                            <th class="pb-3 text-sm font-semibold text-gray-600 dark:text-gray-300">USD</th>
+                            <th class="pb-3 text-sm font-semibold text-gray-600 dark:text-gray-300">EUR</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                        <tr>
+                            <td colspan="3" class="py-4 text-center text-gray-500 dark:text-gray-400">Cargando historial...</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
         <!-- Footer -->
         <footer class="text-center text-white/60 text-sm">
             <p>Las tasas son proporcionadas por el Banco Central de Venezuela (BCV)</p>
-            <p class="mt-2">Datos obtenidos de DolarFlow API</p>
+            <p class="mt-2">Datos obtenidos de DolarFlow API y BCV Today</p>
         </footer>
     </div>
 
