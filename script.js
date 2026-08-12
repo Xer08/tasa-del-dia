@@ -3,6 +3,8 @@ let usdRate = 0;
 let eurRate = 0;
 let previousUsdRate = 0;
 let previousEurRate = 0;
+let usdEveningRate = null; // Tasa del ajuste de 7PM
+let eurEveningRate = null; // Tasa del ajuste de 7PM
 
 // Función para alternar modo oscuro
 function toggleDarkMode() {
@@ -75,26 +77,41 @@ function sendNotification(title, body) {
 }
 
 // Función para actualizar el cambio de precio en la UI
-function updatePriceChange(currency, newRate, oldRate) {
-    if (oldRate === 0 || newRate === oldRate) {
+function updatePriceChange(currency, newRate, oldRate, isSameDayChange = false) {
+    if (oldRate === 0 || !oldRate || newRate === oldRate) {
         return;
     }
 
-    const change = ((newRate - oldRate) / oldRate * 100).toFixed(2);
+    const priceChange = newRate - oldRate;
+    const percentageChange = ((newRate - oldRate) / oldRate * 100).toFixed(2);
     const isIncrease = newRate > oldRate;
     
     const changeElement = document.getElementById(`${currency.toLowerCase()}Change`);
     const changeIcon = document.getElementById(`${currency.toLowerCase()}ChangeIcon`);
     const changeText = document.getElementById(`${currency.toLowerCase()}ChangeText`);
     
-    if (isIncrease) {
-        changeIcon.innerHTML = '📈';
-        changeText.textContent = `+${change}%`;
-        changeText.className = 'text-green-600';
+    if (isSameDayChange) {
+        // Cambio dentro del mismo día (actualización de 7:20 PM)
+        if (isIncrease) {
+            changeIcon.innerHTML = '🔄';
+            changeText.textContent = `${formatNumber(oldRate)} → ${formatNumber(newRate)} VES (+${percentageChange}%)`;
+            changeText.className = 'text-blue-600 dark:text-blue-400';
+        } else {
+            changeIcon.innerHTML = '🔄';
+            changeText.textContent = `${formatNumber(oldRate)} → ${formatNumber(newRate)} VES (${percentageChange}%)`;
+            changeText.className = 'text-blue-600 dark:text-blue-400';
+        }
     } else {
-        changeIcon.innerHTML = '📉';
-        changeText.textContent = `${change}%`;
-        changeText.className = 'text-red-600';
+        // Cambio respecto al día anterior
+        if (isIncrease) {
+            changeIcon.innerHTML = '📈';
+            changeText.textContent = `+${formatNumber(priceChange)} VES (+${percentageChange}%)`;
+            changeText.className = 'text-green-600 dark:text-green-400';
+        } else {
+            changeIcon.innerHTML = '📉';
+            changeText.textContent = `${formatNumber(priceChange)} VES (${percentageChange}%)`;
+            changeText.className = 'text-red-600 dark:text-red-400';
+        }
     }
     
     changeElement.classList.remove('hidden');
@@ -107,11 +124,20 @@ async function fetchHistory() {
         const dates = [];
         const today = new Date();
         
+        // Asegurar que trabajamos con la fecha local y no UTC
+        const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        
         for (let i = 7; i >= 1; i--) {
-            const date = new Date(today);
+            const date = new Date(localToday);
             date.setDate(date.getDate() - i);
-            dates.push(date.toISOString().split('T')[0]);
+            // Formatear como YYYY-MM-DD en zona horaria local
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            dates.push(`${year}-${month}-${day}`);
         }
+        
+        console.log('Fechas del historial a consultar:', dates);
         
         // Obtener datos para cada fecha usando BCV Today
         const tableBody = document.getElementById('historyTableBody');
@@ -121,8 +147,22 @@ async function fetchHistory() {
         
         for (const dateStr of dates) {
             try {
+                console.log(`Obteniendo datos para fecha: ${dateStr}`);
                 const response = await fetch(`https://bcv.today/api/v1/history/${dateStr}.json`);
+                
+                if (!response.ok) {
+                    console.error(`Error HTTP al obtener datos para ${dateStr}:`, response.status);
+                    historyData.push({
+                        date: dateStr,
+                        USD: null,
+                        EUR: null
+                    });
+                    continue;
+                }
+                
                 const data = await response.json();
+                console.log(`Datos recibidos para ${dateStr}:`, data);
+                
                 historyData.push({
                     date: dateStr,
                     USD: data.USD || null,
@@ -145,7 +185,7 @@ async function fetchHistory() {
             const row = document.createElement('tr');
             row.className = 'border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50';
             
-            const date = new Date(entry.date);
+            const date = new Date(entry.date + 'T00:00:00'); // Forzar hora local
             const formattedDate = date.toLocaleDateString('es-VE', {
                 day: '2-digit',
                 month: 'short',
@@ -164,6 +204,8 @@ async function fetchHistory() {
             tableBody.appendChild(row);
         });
         
+        console.log('Historial actualizado correctamente con', historyData.length, 'registros');
+        
     } catch (error) {
         console.error('Error al obtener el historial:', error);
         const tableBody = document.getElementById('historyTableBody');
@@ -174,6 +216,30 @@ async function fetchHistory() {
 // Función para obtener tasas del BCV
 async function fetchRates() {
     try {
+        // Obtener la fecha de ayer para comparar con el día anterior
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+        
+        // Obtener tasas del día anterior desde BCV Today
+        let yesterdayUsdRate = null;
+        let yesterdayEurRate = null;
+        
+        try {
+            const yesterdayResponse = await fetch(`https://bcv.today/api/v1/history/${yesterdayStr}.json`);
+            const yesterdayData = await yesterdayResponse.json();
+            yesterdayUsdRate = yesterdayData.USD || null;
+            yesterdayEurRate = yesterdayData.EUR || null;
+            console.log('Tasas de ayer:', { USD: yesterdayUsdRate, EUR: yesterdayEurRate });
+        } catch (error) {
+            console.error('Error al obtener tasas de ayer:', error);
+        }
+        
+        // Obtener hora actual para determinar si estamos después de las 7PM
+        const today = new Date();
+        const currentHour = today.getHours();
+        const isAfter7PM = currentHour >= 19;
+        
         // Obtener tasa del dólar
         const usdResponse = await fetch('https://dolarflow.com/api/oficial/');
         const usdData = await usdResponse.json();
@@ -181,21 +247,30 @@ async function fetchRates() {
         if (usdData.exito) {
             // Guardar tasa anterior y actualizar la nueva
             previousUsdRate = usdRate;
-            usdRate = usdData.precio;
+            const newUsdRate = usdData.precio;
             
-            // Verificar si hubo cambio en la tasa del dólar
-            if (previousUsdRate !== 0 && usdRate !== previousUsdRate) {
-                const change = ((usdRate - previousUsdRate) / previousUsdRate * 100).toFixed(2);
-                const direction = usdRate > previousUsdRate ? 'subió' : 'bajó';
-                sendNotification(
-                    'Tasa del dólar actualizada',
-                    `El dólar ${direction} a ${formatNumber(usdRate)} VES (${change}%)`
-                );
-                // Actualizar UI con el cambio
-                updatePriceChange('USD', usdRate, previousUsdRate);
+            // Si es después de las 7PM y la tasa es diferente, guardar como tasa de evening
+            if (isAfter7PM && usdRate !== 0 && newUsdRate !== usdRate) {
+                usdEveningRate = newUsdRate;
+                
+                // Mostrar la tasa de evening
+                const eveningRateElement = document.getElementById('usdEveningRate');
+                const eveningRateText = document.getElementById('usdEveningRateText');
+                eveningRateText.textContent = formatNumber(usdEveningRate) + ' VES';
+                eveningRateElement.classList.remove('hidden');
+                
+                console.log('Tasa evening USD:', usdEveningRate);
+            } else if (!isAfter7PM || usdRate === 0) {
+                // Antes de las 7PM o primera carga, actualizar la tasa principal
+                usdRate = newUsdRate;
             }
             
-            // Actualizar UI del dólar
+            // Mostrar cambio respecto al día anterior
+            if (yesterdayUsdRate) {
+                updatePriceChange('USD', usdRate, yesterdayUsdRate, false);
+            }
+            
+            // Actualizar UI del dólar (mantener la tasa principal)
             document.getElementById('usdRate').textContent = formatNumber(usdRate);
             document.getElementById('usdRateText').textContent = formatNumber(usdRate);
             document.getElementById('usdDate').textContent = formatDate(usdData.fechaActualizacion);
@@ -213,21 +288,30 @@ async function fetchRates() {
         if (eurData.exito) {
             // Guardar tasa anterior y actualizar la nueva
             previousEurRate = eurRate;
-            eurRate = eurData.precio;
+            const newEurRate = eurData.precio;
             
-            // Verificar si hubo cambio en la tasa del euro
-            if (previousEurRate !== 0 && eurRate !== previousEurRate) {
-                const change = ((eurRate - previousEurRate) / previousEurRate * 100).toFixed(2);
-                const direction = eurRate > previousEurRate ? 'subió' : 'bajó';
-                sendNotification(
-                    'Tasa del euro actualizada',
-                    `El euro ${direction} a ${formatNumber(eurRate)} VES (${change}%)`
-                );
-                // Actualizar UI con el cambio
-                updatePriceChange('EUR', eurRate, previousEurRate);
+            // Si es después de las 7PM y la tasa es diferente, guardar como tasa de evening
+            if (isAfter7PM && eurRate !== 0 && newEurRate !== eurRate) {
+                eurEveningRate = newEurRate;
+                
+                // Mostrar la tasa de evening
+                const eveningRateElement = document.getElementById('eurEveningRate');
+                const eveningRateText = document.getElementById('eurEveningRateText');
+                eveningRateText.textContent = formatNumber(eurEveningRate) + ' VES';
+                eveningRateElement.classList.remove('hidden');
+                
+                console.log('Tasa evening EUR:', eurEveningRate);
+            } else if (!isAfter7PM || eurRate === 0) {
+                // Antes de las 7PM o primera carga, actualizar la tasa principal
+                eurRate = newEurRate;
             }
             
-            // Actualizar UI del euro
+            // Mostrar cambio respecto al día anterior
+            if (yesterdayEurRate) {
+                updatePriceChange('EUR', eurRate, yesterdayEurRate, false);
+            }
+            
+            // Actualizar UI del euro (mantener la tasa principal)
             document.getElementById('eurRate').textContent = formatNumber(eurRate);
             document.getElementById('eurRateText').textContent = formatNumber(eurRate);
             document.getElementById('eurDate').textContent = formatDate(eurData.fechaActualizacion);
@@ -279,29 +363,33 @@ function convertCurrency() {
     let result = 0;
     let rateText = '';
 
+    // Usar la tasa de evening si está disponible, sino la tasa principal
+    const currentUsdRate = usdEveningRate || usdRate;
+    const currentEurRate = eurEveningRate || eurRate;
+
     // Conversiones
     if (fromCurrency === 'USD' && toCurrency === 'VES') {
-        result = amount * usdRate;
-        rateText = `Tasa: 1 USD = ${formatNumber(usdRate)} VES`;
+        result = amount * currentUsdRate;
+        rateText = `Tasa: 1 USD = ${formatNumber(currentUsdRate)} VES`;
     } else if (fromCurrency === 'EUR' && toCurrency === 'VES') {
-        result = amount * eurRate;
-        rateText = `Tasa: 1 EUR = ${formatNumber(eurRate)} VES`;
+        result = amount * currentEurRate;
+        rateText = `Tasa: 1 EUR = ${formatNumber(currentEurRate)} VES`;
     } else if (fromCurrency === 'VES' && toCurrency === 'USD') {
-        result = amount / usdRate;
-        rateText = `Tasa: 1 USD = ${formatNumber(usdRate)} VES`;
+        result = amount / currentUsdRate;
+        rateText = `Tasa: 1 USD = ${formatNumber(currentUsdRate)} VES`;
     } else if (fromCurrency === 'VES' && toCurrency === 'EUR') {
-        result = amount / eurRate;
-        rateText = `Tasa: 1 EUR = ${formatNumber(eurRate)} VES`;
+        result = amount / currentEurRate;
+        rateText = `Tasa: 1 EUR = ${formatNumber(currentEurRate)} VES`;
     } else if (fromCurrency === 'USD' && toCurrency === 'EUR') {
         // USD a EUR usando las tasas en VES
-        const usdInVes = amount * usdRate;
-        result = usdInVes / eurRate;
-        rateText = `Conversión vía VES: 1 USD = ${formatNumber(usdRate)} VES, 1 EUR = ${formatNumber(eurRate)} VES`;
+        const usdInVes = amount * currentUsdRate;
+        result = usdInVes / currentEurRate;
+        rateText = `Conversión vía VES: 1 USD = ${formatNumber(currentUsdRate)} VES, 1 EUR = ${formatNumber(currentEurRate)} VES`;
     } else if (fromCurrency === 'EUR' && toCurrency === 'USD') {
         // EUR a USD usando las tasas en VES
-        const eurInVes = amount * eurRate;
-        result = eurInVes / usdRate;
-        rateText = `Conversión vía VES: 1 EUR = ${formatNumber(eurRate)} VES, 1 USD = ${formatNumber(usdRate)} VES`;
+        const eurInVes = amount * currentEurRate;
+        result = eurInVes / currentUsdRate;
+        rateText = `Conversión vía VES: 1 EUR = ${formatNumber(currentEurRate)} VES, 1 USD = ${formatNumber(currentUsdRate)} VES`;
     }
 
     // Mostrar resultado
@@ -342,10 +430,158 @@ function copyResult() {
     });
 }
 
+// Función para actualizar tasas manualmente usando BCV Today
+async function manualRefresh() {
+    const refreshBtn = document.getElementById('refreshBtn');
+    const refreshIcon = document.getElementById('refreshIcon');
+    
+    // Mostrar animación de carga
+    refreshIcon.classList.add('animate-spin');
+    refreshBtn.disabled = true;
+    
+    try {
+        // Obtener la fecha de hoy en formato YYYY-MM-DD
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        
+        console.log('Actualización manual para fecha:', todayStr);
+        
+        // Obtener tasas de hoy desde BCV Today
+        const response = await fetch(`https://bcv.today/api/v1/history/${todayStr}.json`);
+        
+        if (!response.ok) {
+            throw new Error('Error al obtener datos de BCV Today');
+        }
+        
+        const data = await response.json();
+        console.log('Datos de BCV Today:', data);
+        
+        // Obtener hora actual para determinar si estamos después de las 7PM
+        const currentHour = today.getHours();
+        const isAfter7PM = currentHour >= 19;
+        
+        if (data.USD) {
+            // Si es después de las 7PM y la tasa es diferente, guardar como tasa de evening
+            if (isAfter7PM && usdRate !== 0 && data.USD !== usdRate) {
+                usdEveningRate = data.USD;
+                
+                // Mostrar la tasa de evening
+                const eveningRateElement = document.getElementById('usdEveningRate');
+                const eveningRateText = document.getElementById('usdEveningRateText');
+                eveningRateText.textContent = formatNumber(usdEveningRate) + ' VES';
+                eveningRateElement.classList.remove('hidden');
+                
+                console.log('Tasa evening USD:', usdEveningRate);
+            } else if (!isAfter7PM && usdRate === 0) {
+                // Primera carga antes de las 7PM
+                usdRate = data.USD;
+            }
+            
+            // Si la tasa principal aún no está cargada, cargarla
+            if (usdRate === 0) {
+                usdRate = data.USD;
+            }
+            
+            // Obtener tasa de ayer para comparar
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+            
+            try {
+                const yesterdayResponse = await fetch(`https://bcv.today/api/v1/history/${yesterdayStr}.json`);
+                const yesterdayData = await yesterdayResponse.json();
+                
+                if (yesterdayData.USD) {
+                    updatePriceChange('USD', usdRate, yesterdayData.USD, false);
+                }
+            } catch (error) {
+                console.error('Error al obtener tasa de ayer:', error);
+            }
+            
+            // Actualizar UI del dólar (mantener la tasa principal)
+            document.getElementById('usdRate').textContent = formatNumber(usdRate);
+            document.getElementById('usdRateText').textContent = formatNumber(usdRate);
+            document.getElementById('usdDate').textContent = formatDate(todayStr);
+            
+            const usdIndicator = document.getElementById('usdIndicator');
+            usdIndicator.textContent = 'BCV Oficial';
+            usdIndicator.className = 'px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700';
+        }
+        
+        if (data.EUR) {
+            // Si es después de las 7PM y la tasa es diferente, guardar como tasa de evening
+            if (isAfter7PM && eurRate !== 0 && data.EUR !== eurRate) {
+                eurEveningRate = data.EUR;
+                
+                // Mostrar la tasa de evening
+                const eveningRateElement = document.getElementById('eurEveningRate');
+                const eveningRateText = document.getElementById('eurEveningRateText');
+                eveningRateText.textContent = formatNumber(eurEveningRate) + ' VES';
+                eveningRateElement.classList.remove('hidden');
+                
+                console.log('Tasa evening EUR:', eurEveningRate);
+            } else if (!isAfter7PM && eurRate === 0) {
+                // Primera carga antes de las 7PM
+                eurRate = data.EUR;
+            }
+            
+            // Si la tasa principal aún no está cargada, cargarla
+            if (eurRate === 0) {
+                eurRate = data.EUR;
+            }
+            
+            // Obtener tasa de ayer para comparar
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+            
+            try {
+                const yesterdayResponse = await fetch(`https://bcv.today/api/v1/history/${yesterdayStr}.json`);
+                const yesterdayData = await yesterdayResponse.json();
+                
+                if (yesterdayData.EUR) {
+                    updatePriceChange('EUR', eurRate, yesterdayData.EUR, false);
+                }
+            } catch (error) {
+                console.error('Error al obtener tasa de ayer:', error);
+            }
+            
+            // Actualizar UI del euro (mantener la tasa principal)
+            document.getElementById('eurRate').textContent = formatNumber(eurRate);
+            document.getElementById('eurRateText').textContent = formatNumber(eurRate);
+            document.getElementById('eurDate').textContent = formatDate(todayStr);
+            
+            const eurIndicator = document.getElementById('eurIndicator');
+            eurIndicator.textContent = 'BCV Oficial';
+            eurIndicator.className = 'px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700';
+        }
+        
+        // Actualizar fecha de última actualización
+        const now = new Date();
+        document.getElementById('lastUpdate').textContent = now.toLocaleString('es-VE');
+        
+        // Actualizar el historial automáticamente
+        await fetchHistory();
+        
+        // Mostrar notificación de éxito
+        sendNotification('Actualización completada', 'Las tasas han sido actualizadas correctamente');
+        
+    } catch (error) {
+        console.error('Error en actualización manual:', error);
+        sendNotification('Error en actualización', 'No se pudieron actualizar las tasas');
+        alert('Error al actualizar las tasas. Por favor, intente nuevamente.');
+    } finally {
+        // Restaurar el botón
+        refreshIcon.classList.remove('animate-spin');
+        refreshBtn.disabled = false;
+    }
+}
+
 // Event listeners
 document.getElementById('convertBtn').addEventListener('click', convertCurrency);
 document.getElementById('swapBtn').addEventListener('click', swapCurrencies);
 document.getElementById('copyBtn').addEventListener('click', copyResult);
+document.getElementById('refreshBtn').addEventListener('click', manualRefresh);
 
 // También permitir conversión al presionar Enter
 document.getElementById('amount').addEventListener('keypress', function(e) {
@@ -387,5 +623,5 @@ fetchHistory();
 // Actualizar tasas cada 5 minutos (300000 ms)
 setInterval(fetchRates, 300000);
 
-// Actualizar historial diariamente (86400000 ms = 24 horas)
-setInterval(fetchHistory, 86400000);
+// Actualizar historial cada hora (3600000 ms = 1 hora) para asegurar datos actualizados
+setInterval(fetchHistory, 3600000);

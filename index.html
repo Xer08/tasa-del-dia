@@ -43,6 +43,13 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="min-h-screen gradient-bg">
@@ -51,14 +58,21 @@
         <header class="text-center mb-12">
             <div class="flex justify-between items-center mb-4">
                 <h1 class="text-4xl md:text-5xl font-bold text-white">Tasa del Día BCV - Calculadora Okami ⛩️</h1>
-                <button id="darkModeToggle" class="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
-                    <svg id="sunIcon" class="w-6 h-6 text-white hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
-                    </svg>
-                    <svg id="moonIcon" class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
-                    </svg>
-                </button>
+                <div class="flex gap-2">
+                    <button id="refreshBtn" class="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors" title="Actualizar tasas manualmente">
+                        <svg id="refreshIcon" class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                    </button>
+                    <button id="darkModeToggle" class="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
+                        <svg id="sunIcon" class="w-6 h-6 text-white hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                        <svg id="moonIcon" class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
             <p class="text-white/80 text-lg">Tasas oficiales del Banco Central de Venezuela, SIN ANUNCIOS 🤑</p>
             <p class="text-white/60 text-sm mt-2">Actualizado: <span id="lastUpdate">Cargando...</span></p>
@@ -86,6 +100,10 @@
                     <p class="text-gray-500 dark:text-gray-300 text-sm mb-1">Tasa actual</p>
                     <p id="usdRate" class="text-4xl font-bold text-gray-800 dark:text-white">Cargando...</p>
                     <p class="text-gray-500 dark:text-gray-300 text-sm">1 USD = <span id="usdRateText">--</span> VES</p>
+                    <div id="usdEveningRate" class="mt-2 text-sm font-medium hidden">
+                        <span class="text-purple-600 dark:text-purple-400">🌙 Último cierre: </span>
+                        <span id="usdEveningRateText" class="text-gray-800 dark:text-white"></span>
+                    </div>
                     <div id="usdChange" class="mt-2 text-sm font-medium hidden">
                         <span id="usdChangeIcon"></span>
                         <span id="usdChangeText"></span>
@@ -119,6 +137,10 @@
                     <p class="text-gray-500 dark:text-gray-300 text-sm mb-1">Tasa actual</p>
                     <p id="eurRate" class="text-4xl font-bold text-gray-800 dark:text-white">Cargando...</p>
                     <p class="text-gray-500 dark:text-gray-300 text-sm">1 EUR = <span id="eurRateText">--</span> VES</p>
+                    <div id="eurEveningRate" class="mt-2 text-sm font-medium hidden">
+                        <span class="text-purple-600 dark:text-purple-400">🌙 Último cierre: </span>
+                        <span id="eurEveningRateText" class="text-gray-800 dark:text-white"></span>
+                    </div>
                     <div id="eurChange" class="mt-2 text-sm font-medium hidden">
                         <span id="eurChangeIcon"></span>
                         <span id="eurChangeText"></span>
