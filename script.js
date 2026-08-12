@@ -5,6 +5,7 @@ let previousUsdRate = 0;
 let previousEurRate = 0;
 let usdEveningRate = null; // Tasa del ajuste de 7PM
 let eurEveningRate = null; // Tasa del ajuste de 7PM
+let useCustomRate = false; // Bandera para usar tasa personalizada
 
 // Función para alternar modo oscuro
 function toggleDarkMode() {
@@ -363,33 +364,47 @@ function convertCurrency() {
     let result = 0;
     let rateText = '';
 
-    // Usar la tasa de evening si está disponible, sino la tasa principal
-    const currentUsdRate = usdEveningRate || usdRate;
-    const currentEurRate = eurEveningRate || eurRate;
+    // Determinar qué tasas usar
+    let currentUsdRate, currentEurRate;
+    
+    if (useCustomRate) {
+        const customRate = parseFloat(document.getElementById('customRate').value);
+        if (isNaN(customRate) || customRate <= 0) {
+            alert('Por favor, ingrese una tasa personalizada válida');
+            return;
+        }
+        // Usar la tasa personalizada para ambas divisas
+        currentUsdRate = customRate;
+        currentEurRate = customRate;
+    } else {
+        // Usar la tasa de evening si está disponible, sino la tasa principal
+        currentUsdRate = usdEveningRate || usdRate;
+        currentEurRate = eurEveningRate || eurRate;
+    }
 
     // Conversiones
     if (fromCurrency === 'USD' && toCurrency === 'VES') {
         result = amount * currentUsdRate;
-        rateText = `Tasa: 1 USD = ${formatNumber(currentUsdRate)} VES`;
+        rateText = useCustomRate ? `Tasa personalizada: 1 USD = ${formatNumber(currentUsdRate)} VES` : `Tasa: 1 USD = ${formatNumber(currentUsdRate)} VES`;
     } else if (fromCurrency === 'EUR' && toCurrency === 'VES') {
         result = amount * currentEurRate;
-        rateText = `Tasa: 1 EUR = ${formatNumber(currentEurRate)} VES`;
+        rateText = useCustomRate ? `Tasa personalizada: 1 EUR = ${formatNumber(currentEurRate)} VES` : `Tasa: 1 EUR = ${formatNumber(currentEurRate)} VES`;
     } else if (fromCurrency === 'VES' && toCurrency === 'USD') {
         result = amount / currentUsdRate;
-        rateText = `Tasa: 1 USD = ${formatNumber(currentUsdRate)} VES`;
+        rateText = useCustomRate ? `Tasa personalizada: 1 USD = ${formatNumber(currentUsdRate)} VES` : `Tasa: 1 USD = ${formatNumber(currentUsdRate)} VES`;
     } else if (fromCurrency === 'VES' && toCurrency === 'EUR') {
         result = amount / currentEurRate;
-        rateText = `Tasa: 1 EUR = ${formatNumber(currentEurRate)} VES`;
+        rateText = useCustomRate ? `Tasa personalizada: 1 EUR = ${formatNumber(currentEurRate)} VES` : `Tasa: 1 EUR = ${formatNumber(currentEurRate)} VES`;
     } else if (fromCurrency === 'USD' && toCurrency === 'EUR') {
         // USD a EUR usando las tasas en VES
         const usdInVes = amount * currentUsdRate;
         result = usdInVes / currentEurRate;
-        rateText = `Conversión vía VES: 1 USD = ${formatNumber(currentUsdRate)} VES, 1 EUR = ${formatNumber(currentEurRate)} VES`;
+        rateText = useCustomRate ? `Tasa personalizada: 1 USD = ${formatNumber(currentUsdRate)} VES, 1 EUR = ${formatNumber(currentEurRate)} VES` : `Conversión vía VES: 1 USD = ${formatNumber(currentUsdRate)} VES, 1 EUR = ${formatNumber(currentEurRate)} VES`;
     } else if (fromCurrency === 'EUR' && toCurrency === 'USD') {
         // EUR a USD usando las tasas en VES
         const eurInVes = amount * currentEurRate;
         result = eurInVes / currentUsdRate;
-        rateText = `Conversión vía VES: 1 EUR = ${formatNumber(currentEurRate)} VES, 1 USD = ${formatNumber(currentUsdRate)} VES`;
+        rateText = useCustomRate ? `Tasa personalizada: 1 EUR = ${formatNumber(currentEurRate)} VES, 1 USD = ${formatNumber(currentUsdRate)} VES` : `Conversión vía VES: 1 EUR = ${formatNumber(currentEurRate)} VES, 1 USD = ${formatNumber(currentUsdRate)} VES`;
     }
 
     // Mostrar resultado
@@ -577,11 +592,33 @@ async function manualRefresh() {
     }
 }
 
+// Función para alternar el uso de tasa personalizada
+function toggleCustomRate() {
+    const customRateContainer = document.getElementById('customRateContainer');
+    const customRateBtn = document.getElementById('customRateBtn');
+    
+    useCustomRate = !useCustomRate;
+    
+    if (useCustomRate) {
+        customRateContainer.classList.remove('hidden');
+        customRateBtn.textContent = 'Usar tasa oficial';
+        customRateBtn.classList.remove('from-orange-500', 'to-red-500', 'hover:from-orange-600', 'hover:to-red-600');
+        customRateBtn.classList.add('from-green-500', 'to-emerald-500', 'hover:from-green-600', 'hover:to-emerald-600');
+    } else {
+        customRateContainer.classList.add('hidden');
+        customRateBtn.textContent = 'Monto personalizado';
+        customRateBtn.classList.remove('from-green-500', 'to-emerald-500', 'hover:from-green-600', 'hover:to-emerald-600');
+        customRateBtn.classList.add('from-orange-500', 'to-red-500', 'hover:from-orange-600', 'hover:to-red-600');
+        document.getElementById('customRate').value = '';
+    }
+}
+
 // Event listeners
 document.getElementById('convertBtn').addEventListener('click', convertCurrency);
 document.getElementById('swapBtn').addEventListener('click', swapCurrencies);
 document.getElementById('copyBtn').addEventListener('click', copyResult);
 document.getElementById('refreshBtn').addEventListener('click', manualRefresh);
+document.getElementById('customRateBtn').addEventListener('click', toggleCustomRate);
 
 // También permitir conversión al presionar Enter
 document.getElementById('amount').addEventListener('keypress', function(e) {

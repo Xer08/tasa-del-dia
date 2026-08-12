@@ -55,25 +55,23 @@
 <body class="min-h-screen gradient-bg">
     <div class="container mx-auto px-4 py-8">
         <!-- Header -->
-        <header class="text-center mb-12">
-            <div class="flex justify-between items-center mb-4">
-                <h1 class="text-4xl md:text-5xl font-bold text-white">Tasa del Día BCV - Calculadora Okami ⛩️</h1>
-                <div class="flex gap-2">
-                    <button id="refreshBtn" class="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors" title="Actualizar tasas manualmente">
-                        <svg id="refreshIcon" class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                        </svg>
-                    </button>
-                    <button id="darkModeToggle" class="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
-                        <svg id="sunIcon" class="w-6 h-6 text-white hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
-                        </svg>
-                        <svg id="moonIcon" class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
-                        </svg>
-                    </button>
-                </div>
+        <header class="text-center mb-12 relative">
+            <div class="absolute right-0 top-0 flex flex-col gap-2">
+                <button id="refreshBtn" class="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors" title="Actualizar tasas manualmente">
+                    <svg id="refreshIcon" class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                </button>
+                <button id="darkModeToggle" class="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
+                    <svg id="sunIcon" class="w-6 h-6 text-white hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                    </svg>
+                    <svg id="moonIcon" class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                    </svg>
+                </button>
             </div>
+            <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">Tasa del Día BCV - Calculadora Okami ⛩️</h1>
             <p class="text-white/80 text-lg">Tasas oficiales del Banco Central de Venezuela, SIN ANUNCIOS 🤑</p>
             <p class="text-white/60 text-sm mt-2">Actualizado: <span id="lastUpdate">Cargando...</span></p>
         </header>
@@ -164,9 +162,9 @@
                 Calculadora de Conversión
             </h2>
 
-            <div class="grid md:grid-cols-7 gap-4 items-end">
+            <div class="grid md:grid-cols-2 gap-4 items-end mb-4">
                 <!-- De -->
-                <div class="md:col-span-3">
+                <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">De</label>
                     <select id="fromCurrency" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:text-white dark:bg-gray-800">
                         <option value="USD">Dólar Americano (USD)</option>
@@ -175,17 +173,8 @@
                     </select>
                 </div>
 
-                <!-- Botón intercambiar -->
-                <div class="md:col-span-1 flex justify-center">
-                    <button id="swapBtn" class="w-12 h-12 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full flex items-center justify-center hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:scale-110" title="Intercambiar divisas">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
-                        </svg>
-                    </button>
-                </div>
-
                 <!-- A -->
-                <div class="md:col-span-3">
+                <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">A</label>
                     <select id="toCurrency" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:text-white dark:bg-gray-800">
                         <option value="VES">Bolívar (VES)</option>
@@ -193,20 +182,46 @@
                         <option value="EUR">Euro (EUR)</option>
                     </select>
                 </div>
+            </div>
 
+            <!-- Botón intercambiar -->
+            <div class="flex justify-center mb-4">
+                <button id="swapBtn" class="w-12 h-12 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full flex items-center justify-center hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:scale-110" title="Intercambiar divisas">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Botón monto personalizado -->
+            <div class="flex justify-center mb-4">
+                <button id="customRateBtn" class="bg-gradient-to-r from-orange-500 to-red-500 text-white py-2 px-4 rounded-lg font-medium hover:from-orange-600 hover:to-red-600 transition-all duration-200 shadow-md text-sm">
+                    Monto personalizado
+                </button>
+            </div>
+
+            <!-- Campo de tasa personalizada (oculto por defecto) -->
+            <div id="customRateContainer" class="hidden mb-4">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Tasa personalizada (VES)</label>
+                <input type="number" id="customRate" placeholder="Ingrese la tasa personalizada" 
+                       class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-lg dark:text-white dark:bg-gray-800 dark:placeholder-gray-400">
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4 items-end">
                 <!-- Monto -->
-                <div class="md:col-span-2">
+                <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Monto</label>
                     <input type="number" id="amount" placeholder="Ingrese el monto a convertir" 
                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-lg dark:text-white dark:bg-gray-800 dark:placeholder-gray-400">
                 </div>
 
                 <!-- Convertir Button -->
-                <div class="md:col-span-2">
+                <div>
                     <button id="convertBtn" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-lg">
                         Convertir
                     </button>
                 </div>
+            </div>
 
                 <!-- Resultado -->
                 <div id="resultContainer" class="md:col-span-2 hidden">
