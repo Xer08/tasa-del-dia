@@ -3,8 +3,6 @@ let usdRate = 0;
 let eurRate = 0;
 let previousUsdRate = 0;
 let previousEurRate = 0;
-let usdEveningRate = null; // Tasa del ajuste de 7PM
-let eurEveningRate = null; // Tasa del ajuste de 7PM
 let useCustomRate = false; // Bandera para usar tasa personalizada
 
 // Función para alternar modo oscuro
@@ -40,11 +38,21 @@ function loadDarkModePreference() {
     }
 }
 
-// Función para formatear números
+// Función para formatear números (formato compatible para copiar/pegar)
 function formatNumber(num) {
     return new Intl.NumberFormat('es-VE', {
         minimumFractionDigits: 2,
-        maximumFractionDigits: 2
+        maximumFractionDigits: 2,
+        useGrouping: true
+    }).format(num);
+}
+
+// Función para formatear números sin separadores de miles (para copiar)
+function formatNumberPlain(num) {
+    return new Intl.NumberFormat('es-VE', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+        useGrouping: false
     }).format(num);
 }
 
@@ -118,102 +126,6 @@ function updatePriceChange(currency, newRate, oldRate, isSameDayChange = false) 
     changeElement.classList.remove('hidden');
 }
 
-// Función para obtener historial de precios de los últimos 7 días
-async function fetchHistory() {
-    try {
-        // Generar fechas de los 7 días anteriores (sin incluir hoy)
-        const dates = [];
-        const today = new Date();
-        
-        // Asegurar que trabajamos con la fecha local y no UTC
-        const localToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        
-        for (let i = 7; i >= 1; i--) {
-            const date = new Date(localToday);
-            date.setDate(date.getDate() - i);
-            // Formatear como YYYY-MM-DD en zona horaria local
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            dates.push(`${year}-${month}-${day}`);
-        }
-        
-        console.log('Fechas del historial a consultar:', dates);
-        
-        // Obtener datos para cada fecha usando BCV Today
-        const tableBody = document.getElementById('historyTableBody');
-        tableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500 dark:text-gray-400">Cargando historial...</td></tr>';
-        
-        const historyData = [];
-        
-        for (const dateStr of dates) {
-            try {
-                console.log(`Obteniendo datos para fecha: ${dateStr}`);
-                const response = await fetch(`https://bcv.today/api/v1/history/${dateStr}.json`);
-                
-                if (!response.ok) {
-                    console.error(`Error HTTP al obtener datos para ${dateStr}:`, response.status);
-                    historyData.push({
-                        date: dateStr,
-                        USD: null,
-                        EUR: null
-                    });
-                    continue;
-                }
-                
-                const data = await response.json();
-                console.log(`Datos recibidos para ${dateStr}:`, data);
-                
-                historyData.push({
-                    date: dateStr,
-                    USD: data.USD || null,
-                    EUR: data.EUR || null
-                });
-            } catch (error) {
-                console.error(`Error al obtener datos para ${dateStr}:`, error);
-                historyData.push({
-                    date: dateStr,
-                    USD: null,
-                    EUR: null
-                });
-            }
-        }
-        
-        // Actualizar la tabla
-        tableBody.innerHTML = '';
-        
-        historyData.forEach(entry => {
-            const row = document.createElement('tr');
-            row.className = 'border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50';
-            
-            const date = new Date(entry.date + 'T00:00:00'); // Forzar hora local
-            const formattedDate = date.toLocaleDateString('es-VE', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric'
-            });
-            
-            const usdRate = entry.USD ? formatNumber(entry.USD) : '--';
-            const eurRate = entry.EUR ? formatNumber(entry.EUR) : '--';
-            
-            row.innerHTML = `
-                <td class="py-3 text-sm text-gray-700 dark:text-gray-300">${formattedDate}</td>
-                <td class="py-3 text-sm font-medium text-gray-800 dark:text-white">${usdRate} VES</td>
-                <td class="py-3 text-sm font-medium text-gray-800 dark:text-white">${eurRate} VES</td>
-            `;
-            
-            tableBody.appendChild(row);
-        });
-        
-        console.log('Historial actualizado correctamente con', historyData.length, 'registros');
-        
-    } catch (error) {
-        console.error('Error al obtener el historial:', error);
-        const tableBody = document.getElementById('historyTableBody');
-        tableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-red-500 dark:text-red-400">Error al cargar el historial</td></tr>';
-    }
-}
-
 // Función para obtener tasas del BCV
 async function fetchRates() {
     try {
@@ -236,91 +148,97 @@ async function fetchRates() {
             console.error('Error al obtener tasas de ayer:', error);
         }
         
-        // Obtener hora actual para determinar si estamos después de las 7PM
+        // Obtener hora actual - NO actualizar después de las 7PM
         const today = new Date();
         const currentHour = today.getHours();
         const isAfter7PM = currentHour >= 19;
         
-        // Obtener tasa del dólar
-        const usdResponse = await fetch('https://dolarflow.com/api/oficial/');
-        const usdData = await usdResponse.json();
-        
-        if (usdData.exito) {
-            // Guardar tasa anterior y actualizar la nueva
-            previousUsdRate = usdRate;
-            const newUsdRate = usdData.precio;
+        // Obtener tasa del dólar desde BCV Today (más confiable)
+        try {
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            const usdResponse = await fetch(`https://bcv.today/api/v1/history/${todayStr}.json`);
+            const usdData = await usdResponse.json();
             
-            // Si es después de las 7PM y la tasa es diferente, guardar como tasa de evening
-            if (isAfter7PM && usdRate !== 0 && newUsdRate !== usdRate) {
-                usdEveningRate = newUsdRate;
+            if (usdData && usdData.USD) {
+                const newUsdRate = usdData.USD;
                 
-                // Mostrar la tasa de evening
-                const eveningRateElement = document.getElementById('usdEveningRate');
-                const eveningRateText = document.getElementById('usdEveningRateText');
-                eveningRateText.textContent = formatNumber(usdEveningRate) + ' VES';
-                eveningRateElement.classList.remove('hidden');
-                
-                console.log('Tasa evening USD:', usdEveningRate);
-            } else if (!isAfter7PM || usdRate === 0) {
-                // Antes de las 7PM o primera carga, actualizar la tasa principal
-                usdRate = newUsdRate;
+                // Solo actualizar si es antes de las 7PM o es la primera carga
+                if (!isAfter7PM || usdRate === 0) {
+                    previousUsdRate = usdRate;
+                    usdRate = newUsdRate;
+                    
+                    // Mostrar cambio respecto al día anterior
+                    if (yesterdayUsdRate) {
+                        updatePriceChange('USD', usdRate, yesterdayUsdRate, false);
+                    }
+                    
+                    // Actualizar UI del dólar
+                    document.getElementById('usdRate').textContent = formatNumber(usdRate);
+                    document.getElementById('usdRateText').textContent = formatNumber(usdRate);
+                    document.getElementById('usdDate').textContent = formatDate(todayStr);
+                    
+                    // Indicador de cambio
+                    const usdIndicator = document.getElementById('usdIndicator');
+                    usdIndicator.textContent = 'BCV Oficial';
+                    usdIndicator.className = 'px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700';
+                } else {
+                    console.log('Después de las 7PM - manteniendo tasa del dólar del día:', usdRate);
+                }
+            } else {
+                console.error('BCV Today no devolvió tasa del dólar');
+                if (usdRate === 0) {
+                    document.getElementById('usdRate').textContent = 'No disponible';
+                }
             }
-            
-            // Mostrar cambio respecto al día anterior
-            if (yesterdayUsdRate) {
-                updatePriceChange('USD', usdRate, yesterdayUsdRate, false);
+        } catch (error) {
+            console.error('Error al obtener tasa del dólar desde BCV Today:', error);
+            if (usdRate === 0) {
+                document.getElementById('usdRate').textContent = 'No disponible';
             }
-            
-            // Actualizar UI del dólar (mantener la tasa principal)
-            document.getElementById('usdRate').textContent = formatNumber(usdRate);
-            document.getElementById('usdRateText').textContent = formatNumber(usdRate);
-            document.getElementById('usdDate').textContent = formatDate(usdData.fechaActualizacion);
-            
-            // Indicador de cambio
-            const usdIndicator = document.getElementById('usdIndicator');
-            usdIndicator.textContent = 'BCV Oficial';
-            usdIndicator.className = 'px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700';
         }
 
-        // Obtener tasa del euro
-        const eurResponse = await fetch('https://dolarflow.com/api/euro/');
-        const eurData = await eurResponse.json();
-        
-        if (eurData.exito) {
-            // Guardar tasa anterior y actualizar la nueva
-            previousEurRate = eurRate;
-            const newEurRate = eurData.precio;
+        // Obtener tasa del euro desde BCV Today (más confiable)
+        try {
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            const eurResponse = await fetch(`https://bcv.today/api/v1/history/${todayStr}.json`);
+            const eurData = await eurResponse.json();
             
-            // Si es después de las 7PM y la tasa es diferente, guardar como tasa de evening
-            if (isAfter7PM && eurRate !== 0 && newEurRate !== eurRate) {
-                eurEveningRate = newEurRate;
+            if (eurData && eurData.EUR) {
+                const newEurRate = eurData.EUR;
                 
-                // Mostrar la tasa de evening
-                const eveningRateElement = document.getElementById('eurEveningRate');
-                const eveningRateText = document.getElementById('eurEveningRateText');
-                eveningRateText.textContent = formatNumber(eurEveningRate) + ' VES';
-                eveningRateElement.classList.remove('hidden');
-                
-                console.log('Tasa evening EUR:', eurEveningRate);
-            } else if (!isAfter7PM || eurRate === 0) {
-                // Antes de las 7PM o primera carga, actualizar la tasa principal
-                eurRate = newEurRate;
+                // Solo actualizar si es antes de las 7PM o es la primera carga
+                if (!isAfter7PM || eurRate === 0) {
+                    previousEurRate = eurRate;
+                    eurRate = newEurRate;
+                    
+                    // Mostrar cambio respecto al día anterior
+                    if (yesterdayEurRate) {
+                        updatePriceChange('EUR', eurRate, yesterdayEurRate, false);
+                    }
+                    
+                    // Actualizar UI del euro
+                    document.getElementById('eurRate').textContent = formatNumber(eurRate);
+                    document.getElementById('eurRateText').textContent = formatNumber(eurRate);
+                    document.getElementById('eurDate').textContent = formatDate(todayStr);
+                    
+                    // Indicador de cambio
+                    const eurIndicator = document.getElementById('eurIndicator');
+                    eurIndicator.textContent = 'BCV Oficial';
+                    eurIndicator.className = 'px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700';
+                } else {
+                    console.log('Después de las 7PM - manteniendo tasa del euro del día:', eurRate);
+                }
+            } else {
+                console.error('BCV Today no devolvió tasa del euro');
+                if (eurRate === 0) {
+                    document.getElementById('eurRate').textContent = 'No disponible';
+                }
             }
-            
-            // Mostrar cambio respecto al día anterior
-            if (yesterdayEurRate) {
-                updatePriceChange('EUR', eurRate, yesterdayEurRate, false);
+        } catch (error) {
+            console.error('Error al obtener tasa del euro desde BCV Today:', error);
+            if (eurRate === 0) {
+                document.getElementById('eurRate').textContent = 'No disponible';
             }
-            
-            // Actualizar UI del euro (mantener la tasa principal)
-            document.getElementById('eurRate').textContent = formatNumber(eurRate);
-            document.getElementById('eurRateText').textContent = formatNumber(eurRate);
-            document.getElementById('eurDate').textContent = formatDate(eurData.fechaActualizacion);
-            
-            // Indicador de cambio
-            const eurIndicator = document.getElementById('eurIndicator');
-            eurIndicator.textContent = 'BCV Oficial';
-            eurIndicator.className = 'px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700';
         }
 
         // Actualizar fecha de última actualización
@@ -329,8 +247,12 @@ async function fetchRates() {
 
     } catch (error) {
         console.error('Error al obtener las tasas:', error);
-        document.getElementById('usdRate').textContent = 'Error';
-        document.getElementById('eurRate').textContent = 'Error';
+        if (usdRate === 0) {
+            document.getElementById('usdRate').textContent = 'Error';
+        }
+        if (eurRate === 0) {
+            document.getElementById('eurRate').textContent = 'Error';
+        }
     }
 }
 
@@ -349,6 +271,72 @@ function swapCurrencies() {
     if (!isNaN(amount) && amount > 0) {
         convertCurrency();
     }
+}
+
+// Función para prevenir selección de la misma moneda
+function preventSameCurrency() {
+    const fromCurrency = document.getElementById('fromCurrency');
+    const toCurrency = document.getElementById('toCurrency');
+    
+    // Cuando cambia "De", actualizar las opciones de "A"
+    fromCurrency.addEventListener('change', function() {
+        const selectedValue = this.value;
+        const toOptions = toCurrency.options;
+        
+        for (let i = 0; i < toOptions.length; i++) {
+            if (toOptions[i].value === selectedValue) {
+                toOptions[i].disabled = true;
+            } else {
+                toOptions[i].disabled = false;
+            }
+        }
+        
+        // Si el valor seleccionado en "A" es el mismo que en "De", cambiar a otra opción
+        if (toCurrency.value === selectedValue) {
+            for (let i = 0; i < toOptions.length; i++) {
+                if (toOptions[i].value !== selectedValue) {
+                    toCurrency.value = toOptions[i].value;
+                    break;
+                }
+            }
+        }
+        
+        // Convertir automáticamente si hay monto
+        const amount = parseFloat(document.getElementById('amount').value);
+        if (!isNaN(amount) && amount > 0) {
+            convertCurrency();
+        }
+    });
+    
+    // Cuando cambia "A", actualizar las opciones de "De"
+    toCurrency.addEventListener('change', function() {
+        const selectedValue = this.value;
+        const fromOptions = fromCurrency.options;
+        
+        for (let i = 0; i < fromOptions.length; i++) {
+            if (fromOptions[i].value === selectedValue) {
+                fromOptions[i].disabled = true;
+            } else {
+                fromOptions[i].disabled = false;
+            }
+        }
+        
+        // Si el valor seleccionado en "De" es el mismo que en "A", cambiar a otra opción
+        if (fromCurrency.value === selectedValue) {
+            for (let i = 0; i < fromOptions.length; i++) {
+                if (fromOptions[i].value !== selectedValue) {
+                    fromCurrency.value = fromOptions[i].value;
+                    break;
+                }
+            }
+        }
+        
+        // Convertir automáticamente si hay monto
+        const amount = parseFloat(document.getElementById('amount').value);
+        if (!isNaN(amount) && amount > 0) {
+            convertCurrency();
+        }
+    });
 }
 
 // Función para convertir monedas
@@ -377,9 +365,9 @@ function convertCurrency() {
         currentUsdRate = customRate;
         currentEurRate = customRate;
     } else {
-        // Usar la tasa de evening si está disponible, sino la tasa principal
-        currentUsdRate = usdEveningRate || usdRate;
-        currentEurRate = eurEveningRate || eurRate;
+        // Usar las tasas principales
+        currentUsdRate = usdRate;
+        currentEurRate = eurRate;
     }
 
     // Conversiones
@@ -420,11 +408,42 @@ function convertCurrency() {
 // Función para copiar el resultado al portapapeles
 function copyResult() {
     const resultElement = document.getElementById('result');
+    const amount = parseFloat(document.getElementById('amount').value);
     
-    const resultText = resultElement.textContent;
+    // Calcular el resultado nuevamente para obtener el número exacto
+    const fromCurrency = document.getElementById('fromCurrency').value;
+    const toCurrency = document.getElementById('toCurrency').value;
     
-    // Extraer solo el número (antes del espacio y la moneda)
-    const numberOnly = resultText.split(' ')[0];
+    let result = 0;
+    let currentUsdRate, currentEurRate;
+    
+    if (useCustomRate) {
+        const customRate = parseFloat(document.getElementById('customRate').value);
+        currentUsdRate = customRate;
+        currentEurRate = customRate;
+    } else {
+        currentUsdRate = usdEveningRate || usdRate;
+        currentEurRate = eurEveningRate || eurRate;
+    }
+    
+    if (fromCurrency === 'USD' && toCurrency === 'VES') {
+        result = amount * currentUsdRate;
+    } else if (fromCurrency === 'EUR' && toCurrency === 'VES') {
+        result = amount * currentEurRate;
+    } else if (fromCurrency === 'VES' && toCurrency === 'USD') {
+        result = amount / currentUsdRate;
+    } else if (fromCurrency === 'VES' && toCurrency === 'EUR') {
+        result = amount / currentEurRate;
+    } else if (fromCurrency === 'USD' && toCurrency === 'EUR') {
+        const usdInVes = amount * currentUsdRate;
+        result = usdInVes / currentEurRate;
+    } else if (fromCurrency === 'EUR' && toCurrency === 'USD') {
+        const eurInVes = amount * currentEurRate;
+        result = eurInVes / currentUsdRate;
+    }
+    
+    // Usar formato sin separadores de miles para copiar
+    const numberOnly = formatNumberPlain(result);
     
     navigator.clipboard.writeText(numberOnly).then(() => {
         // Cambiar el icono del botón temporalmente para indicar que se copió
@@ -432,7 +451,7 @@ function copyResult() {
         const originalHTML = copyBtn.innerHTML;
         
         copyBtn.innerHTML = `
-            <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
             </svg>
         `;
@@ -575,9 +594,6 @@ async function manualRefresh() {
         const now = new Date();
         document.getElementById('lastUpdate').textContent = now.toLocaleString('es-VE');
         
-        // Actualizar el historial automáticamente
-        await fetchHistory();
-        
         // Mostrar notificación de éxito
         sendNotification('Actualización completada', 'Las tasas han sido actualizadas correctamente');
         
@@ -620,24 +636,23 @@ document.getElementById('copyBtn').addEventListener('click', copyResult);
 document.getElementById('refreshBtn').addEventListener('click', manualRefresh);
 document.getElementById('customRateBtn').addEventListener('click', toggleCustomRate);
 
+// Conversión en tiempo real al escribir el monto
+document.getElementById('amount').addEventListener('input', function() {
+    const amount = parseFloat(this.value);
+    if (!isNaN(amount) && amount > 0) {
+        convertCurrency();
+    } else {
+        // Ocultar resultado si el monto no es válido
+        document.getElementById('resultContainer').classList.add('hidden');
+    }
+});
+
+// Inicializar prevención de misma moneda
+preventSameCurrency();
+
 // También permitir conversión al presionar Enter
 document.getElementById('amount').addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
-        convertCurrency();
-    }
-});
-
-// Conversión automática al cambiar las divisas si hay monto
-document.getElementById('fromCurrency').addEventListener('change', function() {
-    const amount = parseFloat(document.getElementById('amount').value);
-    if (!isNaN(amount) && amount > 0) {
-        convertCurrency();
-    }
-});
-
-document.getElementById('toCurrency').addEventListener('change', function() {
-    const amount = parseFloat(document.getElementById('amount').value);
-    if (!isNaN(amount) && amount > 0) {
         convertCurrency();
     }
 });
@@ -654,11 +669,5 @@ fetchRates();
 // Solicitar permiso de notificaciones
 requestNotificationPermission();
 
-// Cargar historial de precios
-fetchHistory();
-
 // Actualizar tasas cada 5 minutos (300000 ms)
 setInterval(fetchRates, 300000);
-
-// Actualizar historial cada hora (3600000 ms = 1 hora) para asegurar datos actualizados
-setInterval(fetchHistory, 3600000);
