@@ -156,88 +156,45 @@ async function fetchRates() {
         
         console.log('Intentando obtener tasas para fecha:', todayStr);
         
-        // Obtener tasas desde BCV Today (una sola petición para ambas divisas)
+        // Obtener tasa del dólar desde BCV Today
         try {
             const response = await fetch(`https://bcv.today/api/v1/history/${todayStr}.json`);
-            console.log('Status de respuesta BCV Today:', response.status);
+            console.log('Status de respuesta BCV Today USD:', response.status);
             
-            if (!response.ok) {
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Datos USD recibidos:', data);
+                
+                if (data && data.USD) {
+                    const newUsdRate = data.USD;
+                    
+                    if (!isAfter7PM || usdRate === 0) {
+                        previousUsdRate = usdRate;
+                        usdRate = newUsdRate;
+                        
+                        if (yesterdayUsdRate) {
+                            updatePriceChange('USD', usdRate, yesterdayUsdRate, false);
+                        }
+                        
+                        document.getElementById('usdRate').textContent = formatNumber(usdRate);
+                        document.getElementById('usdRateText').textContent = formatNumber(usdRate);
+                        document.getElementById('usdDate').textContent = formatDate(todayStr);
+                        
+                        const usdIndicator = document.getElementById('usdIndicator');
+                        usdIndicator.textContent = 'BCV Oficial';
+                        usdIndicator.className = 'px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700';
+                    }
+                } else {
+                    console.error('BCV Today no devolvió USD');
+                    if (usdRate === 0) {
+                        document.getElementById('usdRate').textContent = 'No disponible';
+                    }
+                }
+            } else {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            
-            const data = await response.json();
-            console.log('Datos recibidos de BCV Today:', data);
-            
-            // Procesar tasa del dólar
-            if (data && data.USD) {
-                const newUsdRate = data.USD;
-                
-                // Solo actualizar si es antes de las 7PM o es la primera carga
-                if (!isAfter7PM || usdRate === 0) {
-                    previousUsdRate = usdRate;
-                    usdRate = newUsdRate;
-                    
-                    // Mostrar cambio respecto al día anterior
-                    if (yesterdayUsdRate) {
-                        updatePriceChange('USD', usdRate, yesterdayUsdRate, false);
-                    }
-                    
-                    // Actualizar UI del dólar
-                    document.getElementById('usdRate').textContent = formatNumber(usdRate);
-                    document.getElementById('usdRateText').textContent = formatNumber(usdRate);
-                    document.getElementById('usdDate').textContent = formatDate(todayStr);
-                    
-                    // Indicador de cambio
-                    const usdIndicator = document.getElementById('usdIndicator');
-                    usdIndicator.textContent = 'BCV Oficial';
-                    usdIndicator.className = 'px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700';
-                } else {
-                    console.log('Después de las 7PM - manteniendo tasa del dólar del día:', usdRate);
-                }
-            } else {
-                console.error('BCV Today no devolvió tasa del dólar. Datos:', data);
-                if (usdRate === 0) {
-                    document.getElementById('usdRate').textContent = 'No disponible';
-                }
-            }
-            
-            // Procesar tasa del euro
-            if (data && data.EUR) {
-                const newEurRate = data.EUR;
-                
-                // Solo actualizar si es antes de las 7PM o es la primera carga
-                if (!isAfter7PM || eurRate === 0) {
-                    previousEurRate = eurRate;
-                    eurRate = newEurRate;
-                    
-                    // Mostrar cambio respecto al día anterior
-                    if (yesterdayEurRate) {
-                        updatePriceChange('EUR', eurRate, yesterdayEurRate, false);
-                    }
-                    
-                    // Actualizar UI del euro
-                    document.getElementById('eurRate').textContent = formatNumber(eurRate);
-                    document.getElementById('eurRateText').textContent = formatNumber(eurRate);
-                    document.getElementById('eurDate').textContent = formatDate(todayStr);
-                    
-                    // Indicador de cambio
-                    const eurIndicator = document.getElementById('eurIndicator');
-                    eurIndicator.textContent = 'BCV Oficial';
-                    eurIndicator.className = 'px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700';
-                } else {
-                    console.log('Después de las 7PM - manteniendo tasa del euro del día:', eurRate);
-                }
-            } else {
-                console.error('BCV Today no devolvió tasa del euro. Datos:', data);
-                if (eurRate === 0) {
-                    document.getElementById('eurRate').textContent = 'No disponible';
-                }
-            }
         } catch (error) {
-            console.error('Error al obtener tasas desde BCV Today:', error);
-            console.log('Intentando usar API alternativa...');
-            
-            // Si falla BCV Today, intentar con DolarFlow como respaldo
+            console.error('Error al obtener USD desde BCV Today, intentando DolarFlow:', error);
             try {
                 const usdResponse = await fetch('https://dolarflow.com/api/oficial/');
                 const usdData = await usdResponse.json();
@@ -258,35 +215,122 @@ async function fetchRates() {
                     usdIndicator.textContent = 'DolarFlow';
                     usdIndicator.className = 'px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-700';
                 }
-                
-                const eurResponse = await fetch('https://dolarflow.com/api/euro/');
-                const eurData = await eurResponse.json();
-                
-                if (eurData.exito && (!isAfter7PM || eurRate === 0)) {
-                    previousEurRate = eurRate;
-                    eurRate = eurData.precio;
-                    
-                    if (yesterdayEurRate) {
-                        updatePriceChange('EUR', eurRate, yesterdayEurRate, false);
-                    }
-                    
-                    document.getElementById('eurRate').textContent = formatNumber(eurRate);
-                    document.getElementById('eurRateText').textContent = formatNumber(eurRate);
-                    document.getElementById('eurDate').textContent = formatDate(eurData.fechaActualizacion);
-                    
-                    const eurIndicator = document.getElementById('eurIndicator');
-                    eurIndicator.textContent = 'DolarFlow';
-                    eurIndicator.className = 'px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-700';
-                }
             } catch (fallbackError) {
-                console.error('Error en API alternativa:', fallbackError);
+                console.error('Error en DolarFlow USD:', fallbackError);
                 if (usdRate === 0) {
                     document.getElementById('usdRate').textContent = 'Error';
                 }
-                if (eurRate === 0) {
-                    document.getElementById('eurRate').textContent = 'Error';
+            }
+        }
+        
+        // Obtener tasa del euro - Usar múltiples fuentes como respaldo
+        let eurRateObtained = false;
+        
+        // Intento 1: BCV Today
+        try {
+            const response = await fetch(`https://bcv.today/api/v1/history/${todayStr}.json`);
+            console.log('Status de respuesta BCV Today EUR:', response.status);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Datos EUR recibidos de BCV Today:', data);
+                
+                if (data && data.EUR) {
+                    const newEurRate = data.EUR;
+                    
+                    if (!isAfter7PM || eurRate === 0) {
+                        previousEurRate = eurRate;
+                        eurRate = newEurRate;
+                        eurRateObtained = true;
+                        
+                        if (yesterdayEurRate) {
+                            updatePriceChange('EUR', eurRate, yesterdayEurRate, false);
+                        }
+                        
+                        document.getElementById('eurRate').textContent = formatNumber(eurRate);
+                        document.getElementById('eurRateText').textContent = formatNumber(eurRate);
+                        document.getElementById('eurDate').textContent = formatDate(todayStr);
+                        
+                        const eurIndicator = document.getElementById('eurIndicator');
+                        eurIndicator.textContent = 'BCV Oficial';
+                        eurIndicator.className = 'px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700';
+                    }
                 }
             }
+        } catch (error) {
+            console.error('Error al obtener EUR desde BCV Today:', error);
+        }
+        
+        // Intento 2: DolarFlow (si BCV Today falló)
+        if (!eurRateObtained) {
+            try {
+                const eurResponse = await fetch('https://dolarflow.com/api/euro/');
+                const eurData = await eurResponse.json();
+                console.log('Datos EUR recibidos de DolarFlow:', eurData);
+                
+                if (eurData && eurData.exito && eurData.precio) {
+                    if (!isAfter7PM || eurRate === 0) {
+                        previousEurRate = eurRate;
+                        eurRate = eurData.precio;
+                        eurRateObtained = true;
+                        
+                        if (yesterdayEurRate) {
+                            updatePriceChange('EUR', eurRate, yesterdayEurRate, false);
+                        }
+                        
+                        document.getElementById('eurRate').textContent = formatNumber(eurRate);
+                        document.getElementById('eurRateText').textContent = formatNumber(eurRate);
+                        document.getElementById('eurDate').textContent = formatDate(eurData.fechaActualizacion);
+                        
+                        const eurIndicator = document.getElementById('eurIndicator');
+                        eurIndicator.textContent = 'DolarFlow';
+                        eurIndicator.className = 'px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-700';
+                    }
+                }
+            } catch (error) {
+                console.error('Error al obtener EUR desde DolarFlow:', error);
+            }
+        }
+        
+        // Intento 3: API de tipo cambio como último respaldo
+        if (!eurRateObtained) {
+            try {
+                // Usar una API de tipo cambio más general
+                const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+                const data = await response.json();
+                console.log('Datos recibidos de ExchangeRate API:', data);
+                
+                if (data && data.rates && data.rates.VES) {
+                    // Calcular EUR basado en la relación USD/EUR y USD/VES
+                    const usdToVes = data.rates.VES;
+                    const usdToEur = data.rates.EUR;
+                    const eurToVes = usdToVes / usdToEur;
+                    
+                    if (!isAfter7PM || eurRate === 0) {
+                        previousEurRate = eurRate;
+                        eurRate = eurToVes;
+                        
+                        if (yesterdayEurRate) {
+                            updatePriceChange('EUR', eurRate, yesterdayEurRate, false);
+                        }
+                        
+                        document.getElementById('eurRate').textContent = formatNumber(eurRate);
+                        document.getElementById('eurRateText').textContent = formatNumber(eurRate);
+                        document.getElementById('eurDate').textContent = formatDate(todayStr);
+                        
+                        const eurIndicator = document.getElementById('eurIndicator');
+                        eurIndicator.textContent = 'ExchangeRate';
+                        eurIndicator.className = 'px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-700';
+                    }
+                }
+            } catch (error) {
+                console.error('Error al obtener EUR desde ExchangeRate API:', error);
+            }
+        }
+        
+        // Si después de todos los intentos no se obtuvo la tasa del euro
+        if (!eurRateObtained && eurRate === 0) {
+            document.getElementById('eurRate').textContent = 'No disponible';
         }
 
         // Actualizar fecha de última actualización
