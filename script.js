@@ -38,7 +38,7 @@ function loadDarkModePreference() {
     }
 }
 
-// Función para formatear números (formato compatible para copiar/pegar)
+// Función para formatear números (formato de visualización)
 function formatNumber(num) {
     return new Intl.NumberFormat('es-VE', {
         minimumFractionDigits: 2,
@@ -47,13 +47,9 @@ function formatNumber(num) {
     }).format(num);
 }
 
-// Función para formatear números sin separadores de miles (para copiar)
-function formatNumberPlain(num) {
-    return new Intl.NumberFormat('es-VE', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-        useGrouping: false
-    }).format(num);
+// Función para formatear números para copiar (punto como separador decimal)
+function formatNumberForCopy(num) {
+    return num.toFixed(2).replace('.', '.');
 }
 
 // Función para formatear fecha
@@ -499,8 +495,12 @@ function convertCurrency() {
 
 // Función para copiar el resultado al portapapeles
 function copyResult() {
-    const resultElement = document.getElementById('result');
     const amount = parseFloat(document.getElementById('amount').value);
+    
+    if (isNaN(amount) || amount <= 0) {
+        alert('Por favor, ingrese un monto válido para copiar');
+        return;
+    }
     
     // Calcular el resultado nuevamente para obtener el número exacto
     const fromCurrency = document.getElementById('fromCurrency').value;
@@ -511,11 +511,15 @@ function copyResult() {
     
     if (useCustomRate) {
         const customRate = parseFloat(document.getElementById('customRate').value);
+        if (isNaN(customRate) || customRate <= 0) {
+            alert('Por favor, ingrese una tasa personalizada válida');
+            return;
+        }
         currentUsdRate = customRate;
         currentEurRate = customRate;
     } else {
-        currentUsdRate = usdEveningRate || usdRate;
-        currentEurRate = eurEveningRate || eurRate;
+        currentUsdRate = usdRate;
+        currentEurRate = eurRate;
     }
     
     if (fromCurrency === 'USD' && toCurrency === 'VES') {
@@ -534,8 +538,10 @@ function copyResult() {
         result = eurInVes / currentUsdRate;
     }
     
-    // Usar formato sin separadores de miles para copiar
-    const numberOnly = formatNumberPlain(result);
+    // Usar formato con punto como separador decimal (compatible internacionalmente)
+    const numberOnly = formatNumberForCopy(result);
+    
+    console.log('Copiando al portapapeles:', numberOnly);
     
     navigator.clipboard.writeText(numberOnly).then(() => {
         // Cambiar el icono del botón temporalmente para indicar que se copió
@@ -553,6 +559,7 @@ function copyResult() {
         }, 2000);
     }).catch(err => {
         console.error('Error al copiar al portapapeles:', err);
+        alert('Error al copiar. Por favor, intente nuevamente.');
     });
 }
 
